@@ -2,7 +2,14 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { PRICING_PLANS } from "@shared/schema";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,14 +25,15 @@ export default function AuthPage() {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     const formData = new FormData(e.currentTarget);
     try {
       await login({
         username: formData.get("username") as string,
         password: formData.get("password") as string,
       });
-      setLocation("/");
+      // Force a hard redirect instead of using client-side routing
+      window.location.href = "/";
     } finally {
       setIsLoading(false);
     }
@@ -34,7 +42,7 @@ export default function AuthPage() {
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     const formData = new FormData(e.currentTarget);
     try {
       await register({
@@ -42,7 +50,8 @@ export default function AuthPage() {
         email: formData.get("email") as string,
         password: formData.get("password") as string,
       });
-      setLocation("/");
+      // Force a hard redirect instead of using client-side routing
+      window.location.href = "/";
     } finally {
       setIsLoading(false);
     }
@@ -64,7 +73,7 @@ export default function AuthPage() {
               <CardHeader>
                 <CardTitle>Get Started</CardTitle>
                 <CardDescription>
-                  {activeTab === "login" 
+                  {activeTab === "login"
                     ? "Login to your account to continue"
                     : "Create an account to get started"}
                 </CardDescription>
@@ -97,7 +106,11 @@ export default function AuthPage() {
                           placeholder="Enter your password"
                         />
                       </div>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={isLoading}
+                      >
                         {isLoading ? "Logging in..." : "Login"}
                       </Button>
                     </form>
@@ -134,7 +147,11 @@ export default function AuthPage() {
                           placeholder="Choose a password"
                         />
                       </div>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={isLoading}
+                      >
                         {isLoading ? "Creating account..." : "Create Account"}
                       </Button>
                     </form>
@@ -148,7 +165,10 @@ export default function AuthPage() {
             <h2 className="text-2xl font-bold">Choose Your Plan</h2>
             <div className="grid gap-4">
               {Object.entries(PRICING_PLANS).map(([key, plan]) => (
-                <Card key={key} className={key === "pro" ? "border-primary" : undefined}>
+                <Card
+                  key={key}
+                  className={key === "pro" ? "border-primary" : undefined}
+                >
                   <CardHeader>
                     <CardTitle>{plan.name}</CardTitle>
                     <CardDescription>

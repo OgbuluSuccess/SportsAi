@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { type Content, type GenerateContentRequest } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -9,7 +9,9 @@ import TopicAnalysis from "@/components/topic-analysis";
 
 export default function Generate() {
   const { toast } = useToast();
-  const [generatedContent, setGeneratedContent] = useState<Content>();
+  const [generatedContent, setGeneratedContent] = useState<
+    Content | undefined
+  >();
   const [currentTopic, setCurrentTopic] = useState<string>("");
   const [currentSport, setCurrentSport] = useState<string>("");
 
@@ -22,23 +24,26 @@ export default function Generate() {
       setGeneratedContent(data);
       toast({
         title: "Content generated successfully",
-        description: "Your content is ready for review"
+        description: "Your content is ready for review",
       });
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast({
         variant: "destructive",
         title: "Error generating content",
-        description: error.message
+        description: error.message,
       });
-    }
+    },
   });
 
-  const handleSubmit = (data: GenerateContentRequest) => {
-    setCurrentTopic(data.topic);
-    setCurrentSport(data.sportType);
-    mutation.mutate(data);
-  };
+  const handleSubmit = useCallback(
+    (data: GenerateContentRequest) => {
+      setCurrentTopic(data.topic);
+      setCurrentSport(data.sportType);
+      mutation.mutate(data);
+    },
+    [mutation]
+  );
 
   return (
     <div className="space-y-8">
@@ -51,10 +56,7 @@ export default function Generate() {
 
       <div className="grid lg:grid-cols-2 gap-8">
         <div className="space-y-6">
-          <ContentForm
-            onSubmit={handleSubmit}
-            isLoading={mutation.isPending}
-          />
+          <ContentForm onSubmit={handleSubmit} isLoading={mutation.isPending} />
           {currentTopic && currentSport && (
             <TopicAnalysis topic={currentTopic} sportType={currentSport} />
           )}

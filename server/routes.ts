@@ -1,7 +1,11 @@
 import type { Express } from "express";
 import { createServer } from "http";
 import { storage } from "./storage";
-import { generateContent, generateTopicSuggestions, analyzeTopicInDepth } from "./ai"; // Added import for analyzeTopicInDepth
+import {
+  generateContent,
+  generateTopicSuggestions,
+  analyzeTopicInDepth,
+} from "./ai"; // Added import for analyzeTopicInDepth
 import { generateContentSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { registerAuthRoutes, requireAuth } from "./auth";
@@ -46,16 +50,19 @@ export async function registerRoutes(app: Express) {
         content: result.content,
         metadata: {
           ...result.metadata,
-          created: new Date().toISOString()
-        }
+          created: new Date().toISOString(),
+        },
       });
 
       res.json(saved);
     } catch (error) {
       if (error instanceof ZodError) {
-        res.status(400).json({ error: "Invalid request format", details: error.errors });
+        res
+          .status(400)
+          .json({ error: "Invalid request format", details: error.errors });
       } else {
-        const message = error instanceof Error ? error.message : "An unknown error occurred";
+        const message =
+          error instanceof Error ? error.message : "An unknown error occurred";
         res.status(500).json({ error: message });
       }
     }
@@ -66,7 +73,8 @@ export async function registerRoutes(app: Express) {
       const content = await storage.getAllContent(req.user!.id);
       res.json(content);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: message });
     }
   });
@@ -84,9 +92,19 @@ export async function registerRoutes(app: Express) {
       }
       res.json(content);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: message });
     }
+  });
+
+  app.get("/api/health/openai", requireAuth, (req, res) => {
+    const hasApiKey = !!process.env.OPENAI_API_KEY;
+    res.json({
+      status: hasApiKey ? "configured" : "missing",
+      apiKeyConfigured: hasApiKey,
+      keyLength: hasApiKey ? process.env.OPENAI_API_KEY!.length : 0,
+    });
   });
 
   app.get("/api/suggestions/:sport", requireAuth, async (req, res) => {
@@ -94,7 +112,8 @@ export async function registerRoutes(app: Express) {
       const topics = await generateTopicSuggestions(req.params.sport);
       res.json({ topics });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: message });
     }
   });
@@ -111,7 +130,52 @@ export async function registerRoutes(app: Express) {
       const analysis = await analyzeTopicInDepth(topic, sportType);
       res.json(analysis);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "An unknown error occurred";
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  app.get("/api/topic-analysis", requireAuth, async (req, res) => {
+    try {
+      const { topic, sportType } = req.query;
+
+      if (!topic || typeof topic !== "string") {
+        res.status(400).json({ error: "Topic is required" });
+        return;
+      }
+
+      console.log(
+        `[topic-analysis] Fetching analysis for topic: "${topic}", sport: "${sportType}"`
+      );
+
+      // Use the provided sportType or default to "general"
+      const sport = typeof sportType === "string" ? sportType : "general";
+      const analysis = await analyzeTopicInDepth(topic, sport);
+
+      console.log(
+        `[topic-analysis] Analysis received from OpenAI. Relevance: ${analysis.relevance}, Timeliness: ${analysis.timeliness}`
+      );
+
+      // Return a simplified version for the topic analysis component
+      const responseData = {
+        popularity: analysis.relevance,
+        trending: analysis.timeliness,
+        relatedTopics: analysis.relatedSubtopics,
+        keyInsights: analysis.keyAspects,
+        summary: analysis.analysis,
+      };
+
+      console.log(
+        `[topic-analysis] Sending response: ${JSON.stringify(
+          responseData
+        ).substring(0, 150)}...`
+      );
+      res.json(responseData);
+    } catch (error) {
+      console.error("Topic analysis error:", error);
+      const message =
+        error instanceof Error ? error.message : "An unknown error occurred";
       res.status(500).json({ error: message });
     }
   });
