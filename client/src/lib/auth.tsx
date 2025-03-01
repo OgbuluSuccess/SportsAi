@@ -17,7 +17,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
 
-  const { data: user, isLoading } = useQuery<User>({
+  const { data: user, isLoading: authIsLoading } = useQuery<User>({
     queryKey: ["auth-user"],
     retry: 1,
     queryFn: async () => {
@@ -25,9 +25,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         credentials: "include",
         headers: {
           "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+          Expires: "0",
         },
       });
-      if (!res.ok) throw new Error("Not authenticated");
+      if (!res.ok) {
+        console.log("Auth check failed:", res.status, res.statusText);
+        return null; //Instead of throwing error, return null if not authenticated.
+      }
       return res.json();
     },
   });
@@ -35,15 +40,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginMutation = useMutation({
     mutationFn: async (data: LoginRequest) => {
       const res = await apiRequest("POST", "/api/auth/login", data);
+      if (!res.ok) {
+        const errorData = await res.json();
+        const errorMessage = errorData.message || res.statusText;
+        console.error("Login failed:", errorMessage);
+        throw new Error(errorMessage);
+      }
       return res.json();
     },
     onSuccess: (data) => {
-      // Set the user data immediately
       queryClient.setQueryData(["auth-user"], data);
-      // Force a full refetch to ensure all components have updated data
       queryClient.invalidateQueries({ queryKey: ["auth-user"] });
-
-      // Create a small delay to ensure React Query has time to update state
       setTimeout(() => {
         toast({
           title: "Welcome back!",
@@ -63,15 +70,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const registerMutation = useMutation({
     mutationFn: async (data: InsertUser) => {
       const res = await apiRequest("POST", "/api/auth/register", data);
+      if (!res.ok) {
+        const errorData = await res.json();
+        const errorMessage = errorData.message || res.statusText;
+        console.error("Registration failed:", errorMessage);
+        throw new Error(errorMessage);
+      }
       return res.json();
     },
     onSuccess: (data) => {
-      // Set the user data immediately
       queryClient.setQueryData(["auth-user"], data);
-      // Force a full refetch to ensure all components have updated data
       queryClient.invalidateQueries({ queryKey: ["auth-user"] });
-
-      // Create a small delay to ensure React Query has time to update state
       setTimeout(() => {
         toast({
           title: "Welcome!",
@@ -93,11 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
-      // Clear user data immediately
       queryClient.setQueryData(["auth-user"], null);
-      // Clear all queries to ensure clean state
       queryClient.clear();
-
       toast({
         title: "Goodbye!",
         description: "Successfully logged out",
@@ -109,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user: user || null,
-        isLoading,
+        isLoading: authIsLoading,
         login: loginMutation.mutateAsync,
         register: registerMutation.mutateAsync,
         logout: logoutMutation.mutateAsync,

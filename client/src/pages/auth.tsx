@@ -27,13 +27,27 @@ export default function AuthPage() {
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const username = formData.get("username") as string;
+    const password = formData.get("password") as string;
+
     try {
+      console.log("Submitting login form:", { username });
       await login({
-        username: formData.get("username") as string,
-        password: formData.get("password") as string,
+        username,
+        password,
       });
-      // Force a hard redirect instead of using client-side routing
-      window.location.href = "/";
+
+      console.log("Login successful, redirecting to home page");
+      // Use setTimeout to ensure state updates before redirect
+      setTimeout(() => {
+        // Force a hard redirect instead of using client-side routing
+        window.location.href = "/";
+      }, 100);
+    } catch (error: any) {
+      console.error("Login error:", error?.response?.data || error);
+      alert(
+        "Login failed: " + (error?.response?.data?.error || "Unknown error")
+      );
     } finally {
       setIsLoading(false);
     }
