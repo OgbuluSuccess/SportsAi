@@ -28,10 +28,14 @@ export default function NavBar() {
             <div className="hidden md:flex items-center space-x-4">
               {links.map(({ href, icon: Icon, label }) => (
                 <Link key={href} href={href}>
-                  <a className={cn(
-                    "flex items-center space-x-2 px-3 py-2 text-sm rounded-md hover:bg-accent",
-                    location === href ? "bg-accent text-accent-foreground" : "text-muted-foreground"
-                  )}>
+                  <a
+                    className={cn(
+                      "flex items-center space-x-2 px-3 py-2 text-sm rounded-md hover:bg-accent",
+                      location === href
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground"
+                    )}
+                  >
                     <Icon className="h-4 w-4" />
                     <span>{label}</span>
                   </a>
@@ -49,7 +53,10 @@ export default function NavBar() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => logout()}
+                  onClick={async () => {
+                    await logout();
+                    window.location.href = "/auth";
+                  }}
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <LogOut className="h-4 w-4" />

@@ -1,17 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, memo } from "react";
+import axios from "axios";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 
@@ -20,143 +9,123 @@ interface TopicAnalysisProps {
   sportType: string;
 }
 
-interface AnalysisResponse {
-  relevance: number;
-  timeliness: number;
-  keyAspects: string[];
-  relatedSubtopics: string[];
-  trendingAngles: string[];
-  contentSuggestions: Array<{
-    title: string;
-    description: string;
-    type: "article" | "script";
-  }>;
-  analysis: string;
-}
-
-export default function TopicAnalysis({ topic, sportType }: TopicAnalysisProps) {
+function TopicAnalysis({ topic, sportType }: TopicAnalysisProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [data, setData] = useState<any>(null);
   const { toast } = useToast();
 
-  const { data: analysis, isLoading, error } = useQuery<AnalysisResponse>({
-    queryKey: ["/api/analyze", topic, sportType],
-    enabled: Boolean(topic && sportType),
-    queryFn: async () => {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ topic, sportType }),
-      });
-      if (!res.ok) throw new Error("Failed to analyze topic");
-      return res.json();
-    }
-  });
+  useEffect(() => {
+    const fetchAnalysis = async () => {
+      if (!topic || topic.trim() === "") return;
 
-  if (error) {
-    toast({
-      variant: "destructive",
-      title: "Analysis failed",
-      description: error instanceof Error ? error.message : "Failed to analyze topic"
-    });
+      setIsLoading(true);
+      try {
+        const response = await axios.get(
+          `/api/topic-analysis?topic=${encodeURIComponent(
+            topic
+          )}&sportType=${encodeURIComponent(sportType)}`
+        );
+        setData(response.data);
+      } catch (error) {
+        console.error("Error fetching topic analysis:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load topic analysis. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAnalysis();
+  }, [topic, sportType, toast]);
+
+  if (!topic || topic.trim() === "") {
     return null;
   }
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Topic Analysis</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <Skeleton className="h-[200px] w-full" />
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (!analysis) return null;
-
-  const metrics = [
-    { name: "Relevance", value: analysis.relevance },
-    { name: "Timeliness", value: analysis.timeliness },
-  ];
-
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Topic Analysis</CardTitle>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Topic Insights</CardTitle>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="suggestions">Content Suggestions</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-4">
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={metrics}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis domain={[0, 10]} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="hsl(var(--primary))" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-2">Analysis</h4>
-                <p className="text-sm text-muted-foreground">{analysis.analysis}</p>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Key Aspects</h4>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.keyAspects.map((aspect, i) => (
-                    <Badge key={i} variant="outline">{aspect}</Badge>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium mb-2">Trending Angles</h4>
-                <ScrollArea className="h-[100px]">
-                  <div className="space-y-2">
-                    {analysis.trendingAngles.map((angle, i) => (
-                      <p key={i} className="text-sm">{angle}</p>
-                    ))}
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {data && data.popularity !== undefined ? (
+              <>
+                <div>
+                  <h3 className="font-medium">Popularity Trend</h3>
+                  <div className="h-32 w-full bg-muted rounded-md flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">{data.popularity}/10</p>
+                      <p className="text-xs text-muted-foreground">
+                        Relevance Score
+                      </p>
+                    </div>
+                    <div className="mx-4 border-r h-16"></div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold">{data.trending}/10</p>
+                      <p className="text-xs text-muted-foreground">
+                        Trending Score
+                      </p>
+                    </div>
                   </div>
-                </ScrollArea>
-              </div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="suggestions">
-            <div className="space-y-4">
-              {analysis.contentSuggestions.map((suggestion, i) => (
-                <div key={i} className="space-y-2">
-                  <h4 className="font-medium flex items-center gap-2">
-                    {suggestion.title}
-                    <Badge variant="outline">{suggestion.type}</Badge>
-                  </h4>
-                  <p className="text-sm text-muted-foreground">
-                    {suggestion.description}
-                  </p>
                 </div>
-              ))}
-            </div>
-          </TabsContent>
-        </Tabs>
+                {data.relatedTopics && data.relatedTopics.length > 0 && (
+                  <div>
+                    <h3 className="font-medium">Related Topics</h3>
+                    <ul className="list-disc list-inside text-sm">
+                      {data.relatedTopics
+                        .slice(0, 5)
+                        .map((item: string, index: number) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
+                {data.keyInsights && data.keyInsights.length > 0 && (
+                  <div>
+                    <h3 className="font-medium">Key Insights</h3>
+                    <ul className="list-disc list-inside text-sm">
+                      {data.keyInsights
+                        .slice(0, 3)
+                        .map((item: string, index: number) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                    </ul>
+                  </div>
+                )}
+                {data.summary && (
+                  <div>
+                    <h3 className="font-medium">Summary</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {data.summary.length > 100
+                        ? `${data.summary.substring(0, 100)}...`
+                        : data.summary}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-muted-foreground text-sm">
+                {topic
+                  ? "Loading insights for this topic..."
+                  : "Select a topic to see insights"}
+              </p>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
+
+export default memo(TopicAnalysis);

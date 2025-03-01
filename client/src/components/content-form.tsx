@@ -1,10 +1,27 @@
+import { useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { generateContentSchema, type GenerateContentRequest } from "@shared/schema";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  generateContentSchema,
+  type GenerateContentRequest,
+} from "@shared/schema";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import TopicSuggestions from "./topic-suggestions";
 
@@ -26,7 +43,7 @@ const TONES = [
   "Casual",
   "Technical",
   "Entertaining",
-  "Analytical"
+  "Analytical",
 ];
 
 interface ContentFormProps {
@@ -35,6 +52,7 @@ interface ContentFormProps {
 }
 
 export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
+  // Memoize the form to prevent recreating it on every render
   const form = useForm<GenerateContentRequest>({
     resolver: zodResolver(generateContentSchema),
     defaultValues: {
@@ -42,13 +60,24 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
       type: "article",
       sportType: "Football",
       tone: "Professional",
-      length: 1000
-    }
+      length: 1000,
+    },
   });
+
+  // Memoize the submit handler to prevent recreating it on every render
+  const handleFormSubmit = useCallback(
+    (data: GenerateContentRequest) => {
+      onSubmit(data);
+    },
+    [onSubmit]
+  );
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit(handleFormSubmit)}
+        className="space-y-6"
+      >
         <div className="grid md:grid-cols-2 gap-6">
           <FormField
             control={form.control}
@@ -56,17 +85,14 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Sport</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
+                <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    {SPORTS.map(sport => (
+                    {SPORTS.map((sport) => (
                       <SelectItem key={sport} value={sport}>
                         {sport}
                       </SelectItem>
@@ -83,10 +109,7 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Content Type</FormLabel>
-                <Select
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
+                <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue />
@@ -112,9 +135,9 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
                 <Input placeholder="Enter your topic" {...field} />
               </FormControl>
               <FormMessage />
-              <TopicSuggestions 
-                sport={form.watch("sportType")} 
-                onSelect={(topic) => form.setValue("topic", topic)} 
+              <TopicSuggestions
+                sport={form.watch("sportType")}
+                onSelect={(topic) => form.setValue("topic", topic)}
               />
             </FormItem>
           )}
@@ -126,17 +149,14 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Tone</FormLabel>
-              <Select
-                value={field.value}
-                onValueChange={field.onChange}
-              >
+              <Select value={field.value} onValueChange={field.onChange}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {TONES.map(tone => (
+                  {TONES.map((tone) => (
                     <SelectItem key={tone} value={tone}>
                       {tone}
                     </SelectItem>

@@ -38,12 +38,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return res.json();
     },
     onSuccess: (data) => {
+      // Set the user data immediately
       queryClient.setQueryData(["auth-user"], data);
+      // Force a full refetch to ensure all components have updated data
       queryClient.invalidateQueries({ queryKey: ["auth-user"] });
-      toast({
-        title: "Welcome back!",
-        description: "Successfully logged in",
-      });
+
+      // Create a small delay to ensure React Query has time to update state
+      setTimeout(() => {
+        toast({
+          title: "Welcome back!",
+          description: "Successfully logged in",
+        });
+      }, 100);
     },
     onError: (error: Error) => {
       toast({
@@ -60,11 +66,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return res.json();
     },
     onSuccess: (data) => {
-      queryClient.setQueryData(["/api/auth/me"], data);
-      toast({
-        title: "Welcome!",
-        description: "Account created successfully",
-      });
+      // Set the user data immediately
+      queryClient.setQueryData(["auth-user"], data);
+      // Force a full refetch to ensure all components have updated data
+      queryClient.invalidateQueries({ queryKey: ["auth-user"] });
+
+      // Create a small delay to ensure React Query has time to update state
+      setTimeout(() => {
+        toast({
+          title: "Welcome!",
+          description: "Account created successfully",
+        });
+      }, 100);
     },
     onError: (error: Error) => {
       toast({
@@ -80,8 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await apiRequest("POST", "/api/auth/logout");
     },
     onSuccess: () => {
-      queryClient.setQueryData(["/api/auth/me"], null);
-      queryClient.invalidateQueries();
+      // Clear user data immediately
+      queryClient.setQueryData(["auth-user"], null);
+      // Clear all queries to ensure clean state
+      queryClient.clear();
+
       toast({
         title: "Goodbye!",
         description: "Successfully logged out",

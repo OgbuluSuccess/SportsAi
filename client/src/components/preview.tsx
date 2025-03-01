@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { type Content } from "@shared/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ interface PreviewProps {
   content?: Content;
 }
 
-export default function Preview({ content }: PreviewProps) {
+function Preview({ content }: PreviewProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<string>("preview");
 
@@ -23,7 +23,7 @@ export default function Preview({ content }: PreviewProps) {
     await navigator.clipboard.writeText(content.content);
     toast({
       title: "Copied to clipboard",
-      description: "Content has been copied to your clipboard"
+      description: "Content has been copied to your clipboard",
     });
   };
 
@@ -58,7 +58,9 @@ export default function Preview({ content }: PreviewProps) {
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
             {content.metadata.suggestedTags?.map((tag) => (
-              <Badge key={tag} variant="secondary">{tag}</Badge>
+              <Badge key={tag} variant="secondary">
+                {tag}
+              </Badge>
             ))}
           </div>
 
@@ -89,3 +91,5 @@ export default function Preview({ content }: PreviewProps) {
     </Card>
   );
 }
+
+export default memo(Preview);
