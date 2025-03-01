@@ -1,33 +1,30 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import session from "express-session";
+import { MemoryStore } from "express-session";
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Add CORS support for development
-if (app.get("env") === "development") {
-  app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "http://localhost:5000");
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization"
-    );
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS"
-    );
+// Add CORS support for all environments
+app.use((req, res, next) => {
+  const origin = req.headers.origin || "http://localhost:5000";
+  res.header("Access-Control-Allow-Origin", origin);
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization"
+  );
 
-    // Handle preflight requests
-    if (req.method === "OPTIONS") {
-      return res.status(200).end();
-    }
-
-    next();
-  });
-}
+  // Handle preflight requests
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -58,6 +55,8 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Session configuration is handled in routes.ts
 
 (async () => {
   const server = await registerRoutes(app);

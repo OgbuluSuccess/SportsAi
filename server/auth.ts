@@ -1,188 +1,179 @@
-import {
-  type Request,
-  type Response,
-  type NextFunction,
-  type Express,
-} from "express";
-import bcrypt from "bcryptjs";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import type { Express, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
-import { type User, loginSchema, registerUserSchema } from "@shared/schema";
-import { z } from "zod";
+import bcrypt from "bcryptjs";
 
-declare global {
-  namespace Express {
-    interface User {
-      id: number;
-      username: string;
-      email: string;
-      plan: "free" | "pro" | "enterprise";
-      createdAt: Date;
-    }
-  }
-}
-
-// Auth middleware
-export async function requireAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  if (!req.session.userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-
-  try {
-    const user = await storage.getUser(req.session.userId);
-    if (!user) {
-      req.session.destroy(() => {});
-      res.status(401).json({ error: "Unauthorized" });
-      return;
-    }
-
-    // Attach user to request for route handlers
-    const { password, ...userWithoutPassword } = user;
-    req.user = userWithoutPassword;
-    next();
-  } catch (error) {
-    console.error("Auth middleware error:", error);
-    next(error);
-  }
-}
-
-// Auth routes
-export function registerAuthRoutes(app: Express) {
-  // Setup passport
-  passport.use(
-    new LocalStrategy(async (username, password, done) => {
-      try {
-        const user = await storage.getUserByUsername(username);
-        if (!user) {
-          return done(null, false, { message: "Invalid credentials" });
-        }
-
-        const valid = await bcrypt.compare(password, user.password);
-        if (!valid) {
-          return done(null, false, { message: "Invalid credentials" });
-        }
-
-        const { password: _, ...userWithoutPassword } = user;
-        return done(null, userWithoutPassword);
-      } catch (error) {
-        console.error("Passport strategy error:", error);
-        return done(error);
-      }
-    })
-  );
-
-  passport.serializeUser((user: Express.User, done) => {
-    done(null, user.id);
-  });
-
-  passport.deserializeUser(async (id: number, done) => {
+// Configure passport to use local strategy
+passport.use(
+  new LocalStrategy(async (username, password, done) => {
     try {
-      const user = await storage.getUser(id);
-      if (!user) {
-        return done(null, false);
-      }
-      const { password: _, ...userWithoutPassword } = user;
-      done(null, userWithoutPassword);
-    } catch (error) {
-      console.error("Passport deserialize error:", error);
-      done(error);
-    }
-  });
+      const user = await storage.getUserByUsername(username);
 
+      if (!user) {
+        return done(null, false, { message: "Invalid username" });
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return done(null, false, { message: "Invalid password" });
+      }
+
+      return done(null, user);
+    } catch (error) {
+      return done(error);
+    }
+  })
+);
+
+// Configure serialization (what goes into session)
+passport.serializeUser((user: any, done) => {
+  console.log("Serializing user:", user.id);
+  done(null, user.id);
+});
+
+// Configure deserialization (how to get user from session data)
+passport.deserializeUser(async (id: number, done) => {
+  try {
+    // Reduce logging noise
+    const user = await storage.getUser(id);
+    if (!user) {
+      console.log("User not found during deserialization");
+      return done(null, false);
+    }
+    done(null, user);
+  } catch (error) {
+    console.error("Error during deserialization:", error);
+    done(error);
+  }
+});
+
+export function registerAuthRoutes(app: Express) {
+  // Initialize passport and session handling
   app.use(passport.initialize());
   app.use(passport.session());
 
+  // Debug middleware to log session and user (only for specific endpoints)
+  app.use((req, res, next) => {
+    // Only log session data for auth-related endpoints
+    if (req.path.startsWith("/api/auth/")) {
+      console.log("Session ID:", req.sessionID);
+      console.log("Is authenticated:", req.isAuthenticated());
+      // Don't log full session and user data for cleaner logs
+    }
+    next();
+  });
+
+  // Register route
   app.post("/api/auth/register", async (req, res) => {
     try {
-      console.log("Registration request:", {
-        ...req.body,
-        password: "[REDACTED]",
-      });
-      const data = registerUserSchema.parse(req.body);
+      const { username, email, password } = req.body;
 
-      // Check if user exists
-      const existing = await storage.getUserByUsername(data.username);
-      if (existing) {
-        res.status(400).json({ error: "Username already taken" });
-        return;
-      }
-
-      // Check if email exists
-      const existingEmail = await storage.getUserByEmail(data.email);
-      if (existingEmail) {
-        res.status(400).json({ error: "Email already registered" });
-        return;
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(username);
+      if (existingUser) {
+        return res.status(400).json({ error: "Username already exists" });
       }
 
       // Hash password
-      const hashedPassword = await bcrypt.hash(data.password, 10);
+      const hashedPassword = await bcrypt.hash(password, 10);
 
       // Create user
       const user = await storage.createUser({
-        ...data,
+        username,
+        email,
         password: hashedPassword,
+        plan: "free",
       });
 
-      // Start session
-      req.session.userId = user.id;
+      // Remove password from response
+      const { password: _, ...userWithoutPassword } = user;
 
-      // Return user without password
-      const { password, ...userWithoutPassword } = user;
       res.status(201).json(userWithoutPassword);
     } catch (error) {
       console.error("Registration error:", error);
-      if (error instanceof z.ZodError) {
-        res
-          .status(400)
-          .json({ error: "Invalid request format", details: error.errors });
-      } else {
-        res.status(500).json({ error: "Server error" });
-      }
+      res.status(500).json({ error: "Failed to register user" });
     }
   });
 
+  // Login route
   app.post("/api/auth/login", (req, res, next) => {
-    passport.authenticate(
-      "local",
-      (
-        err: Error | null,
-        user: Express.User | false,
-        info: { message?: string }
-      ) => {
+    passport.authenticate("local", (err, user, info) => {
+      if (err) {
+        console.error("Authentication error:", err);
+        return next(err);
+      }
+
+      if (!user) {
+        return res
+          .status(401)
+          .json({ error: info?.message || "Invalid credentials" });
+      }
+
+      console.log("User authenticated successfully:", user.username);
+
+      req.login(user, (err) => {
         if (err) {
-          console.error("Login error:", err);
+          console.error("Login session error:", err);
           return next(err);
         }
-        if (!user) {
-          return res
-            .status(401)
-            .json({ error: info?.message || "Invalid credentials" });
-        }
-        req.logIn(user, (err: any) => {
+
+        // Save the session explicitly to ensure cookie is set
+        req.session.save((err) => {
           if (err) {
-            console.error("Login session error:", err);
+            console.error("Session save error:", err);
             return next(err);
           }
-          req.session.userId = user.id;
-          res.json(user);
+
+          // Remove password from response
+          const { password: _, ...userWithoutPassword } = user;
+          console.log("Login successful. Session ID:", req.sessionID);
+          console.log("Session after login:", req.session);
+
+          res.json(userWithoutPassword);
         });
-      }
-    )(req, res, next);
+      });
+    })(req, res, next);
   });
 
+  // Current user route
+  app.get("/api/auth/me", (req, res) => {
+    console.log("GET /api/auth/me - isAuthenticated:", req.isAuthenticated());
+    console.log("Session:", req.session);
+    console.log("User:", req.user);
+
+    if (!req.isAuthenticated() || !req.user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = req.user as any;
+    res.json(userWithoutPassword);
+  });
+
+  // Logout route
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy(() => {
-      res.status(200).json({ message: "Logged out successfully" });
+    req.logout((err) => {
+      if (err) {
+        console.error("Logout error:", err);
+        return res.status(500).json({ error: "Failed to logout" });
+      }
+
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("Session destruction error:", err);
+          return res.status(500).json({ error: "Failed to destroy session" });
+        }
+        res.json({ message: "Logged out successfully" });
+      });
     });
   });
+}
 
-  app.get("/api/auth/me", requireAuth, (req, res) => {
-    res.json(req.user);
-  });
+// Middleware to protect routes
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
 }

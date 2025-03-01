@@ -24,12 +24,15 @@ export async function registerRoutes(app: Express) {
     session({
       store: storage.sessionStore,
       secret: process.env.SESSION_SECRET || "development_secret",
-      resave: false,
+      resave: true,
       saveUninitialized: false,
+      name: "sports_ai_session", // Specific name helps avoid conflicts
       cookie: {
-        secure: process.env.NODE_ENV === "production",
-        sameSite: process.env.NODE_ENV === "production" ? "strict" : "lax",
+        secure: false, // Set to false for both dev and production in Replit
+        sameSite: "lax",
         maxAge: 1000 * 60 * 60 * 24 * 7, // 1 week
+        httpOnly: true,
+        path: "/",
       },
     })
   );

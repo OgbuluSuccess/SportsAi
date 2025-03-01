@@ -1,26 +1,16 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
-import { useAuth } from "@/lib/auth";
-import { PRICING_PLANS } from "@shared/schema";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Check, X } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAuth } from "@/lib/auth";
+import { toast } from "@/hooks/use-toast";
 
 export default function AuthPage() {
-  const [, setLocation] = useLocation();
   const { login, register } = useAuth();
-  const [activeTab, setActiveTab] = useState("login");
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("login");
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -30,24 +20,36 @@ export default function AuthPage() {
     const username = formData.get("username") as string;
     const password = formData.get("password") as string;
 
-    try {
-      console.log("Submitting login form:", { username });
-      await login({
-        username,
-        password,
+    if (!username || !password) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
       });
+      setIsLoading(false);
+      return;
+    }
 
-      console.log("Login successful, redirecting to home page");
-      // Use setTimeout to ensure state updates before redirect
+    console.log("Submitting login form:", { username });
+
+    try {
+      const userData = await login({ username, password });
+
+      console.log("Login successful, user data:", userData);
+
+      // Delay to ensure session is established
       setTimeout(() => {
-        // Force a hard redirect instead of using client-side routing
+        console.log("Redirecting to home page");
+        // Force a complete page reload to ensure fresh state
         window.location.href = "/";
-      }, 100);
+      }, 1500);
     } catch (error: any) {
       console.error("Login error:", error?.response?.data || error);
-      alert(
-        "Login failed: " + (error?.response?.data?.error || "Unknown error")
-      );
+      toast({
+        title: "Login failed",
+        description: error?.response?.data?.error || "Unknown error",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -58,163 +60,146 @@ export default function AuthPage() {
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    try {
-      await register({
-        username: formData.get("username") as string,
-        email: formData.get("email") as string,
-        password: formData.get("password") as string,
+    const username = formData.get("username") as string;
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
+    const confirmPassword = formData.get("confirmPassword") as string;
+
+    if (!username || !email || !password || !confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive",
       });
-      // Force a hard redirect instead of using client-side routing
-      window.location.href = "/";
+      setIsLoading(false);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Error",
+        description: "Passwords do not match",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const userData = await register({ username, email, password });
+
+      toast({
+        title: "Registration successful",
+        description: "You have been registered successfully",
+      });
+
+      setActiveTab("login");
+    } catch (error: any) {
+      console.error("Registration error:", error?.response?.data || error);
+      toast({
+        title: "Registration failed",
+        description: error?.response?.data?.error || "Unknown error",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid md:grid-cols-2 gap-8 items-start">
-          <div className="space-y-8">
-            <div>
-              <h1 className="text-4xl font-bold">Welcome to SportsAI</h1>
-              <p className="text-muted-foreground mt-2">
-                Generate engaging sports content with AI assistance
-              </p>
-            </div>
+    <div className="flex h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-center">Sports AI</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs
+            defaultValue="login"
+            value={activeTab}
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="register">Register</TabsTrigger>
+            </TabsList>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Get Started</CardTitle>
-                <CardDescription>
-                  {activeTab === "login"
-                    ? "Login to your account to continue"
-                    : "Create an account to get started"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="login">Login</TabsTrigger>
-                    <TabsTrigger value="register">Register</TabsTrigger>
-                  </TabsList>
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="username">Username</Label>
+                  <Input
+                    id="username"
+                    name="username"
+                    placeholder="Enter your username"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    name="password"
+                    type="password"
+                    placeholder="Enter your password"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Logging in..." : "Login"}
+                </Button>
+              </form>
+            </TabsContent>
 
-                  <TabsContent value="login">
-                    <form onSubmit={handleLogin} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="username">Username</Label>
-                        <Input
-                          id="username"
-                          name="username"
-                          required
-                          placeholder="Enter your username"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
-                        <Input
-                          id="password"
-                          name="password"
-                          type="password"
-                          required
-                          placeholder="Enter your password"
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? "Logging in..." : "Login"}
-                      </Button>
-                    </form>
-                  </TabsContent>
-
-                  <TabsContent value="register">
-                    <form onSubmit={handleRegister} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="register-username">Username</Label>
-                        <Input
-                          id="register-username"
-                          name="username"
-                          required
-                          placeholder="Choose a username"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          name="email"
-                          type="email"
-                          required
-                          placeholder="Enter your email"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="register-password">Password</Label>
-                        <Input
-                          id="register-password"
-                          name="password"
-                          type="password"
-                          required
-                          placeholder="Choose a password"
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        className="w-full"
-                        disabled={isLoading}
-                      >
-                        {isLoading ? "Creating account..." : "Create Account"}
-                      </Button>
-                    </form>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="space-y-8">
-            <h2 className="text-2xl font-bold">Choose Your Plan</h2>
-            <div className="grid gap-4">
-              {Object.entries(PRICING_PLANS).map(([key, plan]) => (
-                <Card
-                  key={key}
-                  className={key === "pro" ? "border-primary" : undefined}
-                >
-                  <CardHeader>
-                    <CardTitle>{plan.name}</CardTitle>
-                    <CardDescription>
-                      <span className="text-2xl font-bold">${plan.price}</span>
-                      /month
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-primary" />
-                          {feature}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                  <CardFooter>
-                    <Button
-                      className="w-full"
-                      variant={key === "pro" ? "default" : "outline"}
-                      onClick={() => setActiveTab("register")}
-                    >
-                      Get Started
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+            <TabsContent value="register">
+              <form onSubmit={handleRegister} className="space-y-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reg-username">Username</Label>
+                  <Input
+                    id="reg-username"
+                    name="username"
+                    placeholder="Choose a username"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-password">Password</Label>
+                  <Input
+                    id="reg-password"
+                    name="password"
+                    type="password"
+                    placeholder="Create a password"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confirmPassword">Confirm Password</Label>
+                  <Input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    placeholder="Confirm your password"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? "Registering..." : "Register"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </div>
   );
 }
