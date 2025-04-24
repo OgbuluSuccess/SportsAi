@@ -1,19 +1,20 @@
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
-import "dotenv/config";
+import mongoose from 'mongoose';
+import 'dotenv/config';
 
-// Get the connection string from environment variable or use a default
-const connectionString = process.env.DATABASE_URL;
+// Get the MongoDB connection string from environment variable
+const mongoUri = process.env.MONGODB_URI;
 
 // Check if connection string is available
-if (!connectionString) {
-  console.error("No DATABASE_URL found in environment");
-  console.error("Using default PostgreSQL connection string");
+if (!mongoUri) {
+  throw new Error('MONGODB_URI environment variable is required');
 }
 
-// Create client with explicit connection string
-const client = postgres(
-  connectionString ||
-    "postgresql://postgres:1234567@localhost:5432/sports_ai_db"
-);
-export const db = drizzle(client);
+// Connect to MongoDB
+mongoose.connect(mongoUri)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((error) => {
+    console.error('MongoDB connection error:', error);
+    process.exit(1);
+  });
+
+export const db = mongoose.connection;

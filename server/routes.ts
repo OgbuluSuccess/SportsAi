@@ -5,7 +5,7 @@ import {
   generateContent,
   generateTopicSuggestions,
   analyzeTopicInDepth,
-} from "./ai"; // Added import for analyzeTopicInDepth
+} from "./ai";
 import { generateContentSchema } from "@shared/schema";
 import { ZodError } from "zod";
 import { registerAuthRoutes, requireAuth } from "./auth";

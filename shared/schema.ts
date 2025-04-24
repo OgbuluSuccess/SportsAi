@@ -1,62 +1,11 @@
-import {
-  pgTable,
-  text,
-  serial,
-  integer,
-  timestamp,
-  json,
-  foreignKey,
-  varchar,
-} from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  plan: text("plan", { enum: ["free", "pro", "enterprise"] })
-    .default("free")
-    .notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-export const sessions = pgTable("session", {
-  sid: varchar("sid").primaryKey(),
-  sess: json("sess").notNull(),
-  expire: timestamp("expire").notNull(),
-});
-
-export const contentItems = pgTable("content_items", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id")
-    .references(() => users.id)
-    .notNull(),
-  topic: text("topic").notNull(),
-  type: text("type", { enum: ["article", "script"] }).notNull(),
-  prompt: text("prompt").notNull(),
-  content: text("content").notNull(),
-  metadata: json("metadata")
-    .$type<{
-      wordCount?: number;
-      suggestedTags?: string[];
-      created?: string;
-    }>()
-    .notNull(),
-});
-
 // Schema for user registration and login
-export const registerUserSchema = createInsertSchema(users)
-  .pick({
-    username: true,
-    email: true,
-    password: true,
-  })
-  .extend({
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    email: z.string().email("Invalid email address"),
-  });
+export const registerUserSchema = z.object({
+  username: z.string().min(1, "Username is required"),
+  email: z.string().email("Invalid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters")
+});
 
 export const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -64,15 +13,6 @@ export const loginSchema = z.object({
 });
 
 // Content schemas
-export const insertContentSchema = createInsertSchema(contentItems).pick({
-  topic: true,
-  type: true,
-  prompt: true,
-  content: true,
-  metadata: true,
-  userId: true,
-});
-
 export const generateContentSchema = z.object({
   topic: z.string().min(1),
   type: z.enum(["article", "script"]),
@@ -84,10 +24,11 @@ export const generateContentSchema = z.object({
 // Types
 export type InsertUser = z.infer<typeof registerUserSchema>;
 export type LoginRequest = z.infer<typeof loginSchema>;
-export type User = typeof users.$inferSelect;
-export type InsertContent = z.infer<typeof insertContentSchema>;
-export type Content = typeof contentItems.$inferSelect;
 export type GenerateContentRequest = z.infer<typeof generateContentSchema>;
+
+// Re-export MongoDB models
+export { User, ContentItem, Session } from './models';
+export type { UserDocument, ContentDocument } from './models';
 
 // Pricing plan configurations
 export const PRICING_PLANS = {

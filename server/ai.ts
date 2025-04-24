@@ -1,10 +1,7 @@
 import OpenAI from "openai";
+import { config } from './config';
 
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY environment variable is required");
-}
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: config.openai.apiKey });
 
 // the newest OpenAI model "gpt-4o"
 export async function generateContent(request: {

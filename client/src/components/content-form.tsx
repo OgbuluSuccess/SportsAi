@@ -52,7 +52,6 @@ interface ContentFormProps {
 }
 
 export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
-  // Memoize the form to prevent recreating it on every render
   const form = useForm<GenerateContentRequest>({
     resolver: zodResolver(generateContentSchema),
     defaultValues: {
@@ -64,7 +63,6 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
     },
   });
 
-  // Memoize the submit handler to prevent recreating it on every render
   const handleFormSubmit = useCallback(
     (data: GenerateContentRequest) => {
       onSubmit(data);
@@ -76,7 +74,7 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(handleFormSubmit)}
-        className="space-y-6"
+        className="space-y-8 bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-100"
       >
         <div className="grid md:grid-cols-2 gap-6">
           <FormField
@@ -84,21 +82,22 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
             name="sportType"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Sport</FormLabel>
+                <FormLabel className="text-sm font-semibold text-gray-700">Sport</FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
                       <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {SPORTS.map((sport) => (
-                      <SelectItem key={sport} value={sport}>
+                      <SelectItem key={sport} value={sport} className="hover:bg-blue-50">
                         {sport}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -108,18 +107,19 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
             name="type"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Content Type</FormLabel>
+                <FormLabel className="text-sm font-semibold text-gray-700">Content Type</FormLabel>
                 <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
                       <SelectValue />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="article">Article</SelectItem>
-                    <SelectItem value="script">Video Script</SelectItem>
+                    <SelectItem value="article" className="hover:bg-blue-50">Article</SelectItem>
+                    <SelectItem value="script" className="hover:bg-blue-50">Video Script</SelectItem>
                   </SelectContent>
                 </Select>
+                <FormMessage />
               </FormItem>
             )}
           />
@@ -130,14 +130,19 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
           name="topic"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Topic</FormLabel>
+              <FormLabel className="text-sm font-semibold text-gray-700">Topic</FormLabel>
               <FormControl>
-                <Input placeholder="Enter your topic" {...field} />
+                <Input
+                  placeholder="Enter your topic"
+                  {...field}
+                  className="bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                />
               </FormControl>
               <FormMessage />
               <TopicSuggestions
                 sport={form.watch("sportType")}
                 onSelect={(topic) => form.setValue("topic", topic)}
+                className="mt-2"
               />
             </FormItem>
           )}
@@ -148,21 +153,22 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
           name="tone"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Tone</FormLabel>
+              <FormLabel className="text-sm font-semibold text-gray-700">Tone</FormLabel>
               <Select value={field.value} onValueChange={field.onChange}>
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border-gray-200 focus:ring-2 focus:ring-blue-500 transition-all duration-200">
                     <SelectValue />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
                   {TONES.map((tone) => (
-                    <SelectItem key={tone} value={tone}>
+                    <SelectItem key={tone} value={tone} className="hover:bg-blue-50">
                       {tone}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <FormMessage />
             </FormItem>
           )}
         />
@@ -172,7 +178,9 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
           name="length"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Length (words): {field.value}</FormLabel>
+              <FormLabel className="text-sm font-semibold text-gray-700">
+                Length (words): {field.value}
+              </FormLabel>
               <FormControl>
                 <Slider
                   min={100}
@@ -180,14 +188,47 @@ export default function ContentForm({ onSubmit, isLoading }: ContentFormProps) {
                   step={100}
                   value={[field.value]}
                   onValueChange={([value]) => field.onChange(value)}
+                  className="py-4"
+                  thumbClassName="bg-blue-600 border-2 border-white shadow-md"
+                  trackClassName="bg-gray-200"
+                  activeTrackClassName="bg-blue-500"
                 />
               </FormControl>
+              <FormMessage />
             </FormItem>
           )}
         />
 
-        <Button type="submit" className="w-full" disabled={isLoading}>
-          {isLoading ? "Generating..." : "Generate Content"}
+        <Button
+          type="submit"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center">
+              <svg
+                className="animate-spin h-5 w-5 mr-2 text-white"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Generating...
+            </span>
+          ) : (
+            "Generate Content"
+          )}
         </Button>
       </form>
     </Form>
